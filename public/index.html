@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MANUMANUSHOP - API Cliente</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        input, select, button {
+            margin: 5px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .token {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            font-size: 12px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🛍️ MANUMANUSHOP - Pruebas de API</h1>
+    
+    <div class="card">
+        <h3>1. 📝 Registro</h3>
+        <input type="email" id="regEmail" placeholder="Email" value="usuario1@example.com">
+        <input type="password" id="regPass" placeholder="Password" value="123456">
+        <select id="regRole">
+            <option value="user">Usuario</option>
+            <option value="admin">Admin</option>
+        </select>
+        <button onclick="registrar()">Registrar</button>
+    </div>
+
+    <div class="card">
+        <h3>2. 🔑 Login</h3>
+        <input type="email" id="loginEmail" placeholder="Email" value="usuario1@example.com">
+        <input type="password" id="loginPass" placeholder="Password" value="123456">
+        <button onclick="login()">Iniciar Sesión</button>
+        <div id="tokenDiv" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+        <h3>3. 💰 Transferencia</h3>
+        <input type="number" id="monto" placeholder="Monto" value="500">
+        <input type="text" id="cuenta" placeholder="Cuenta Destino" value="123456">
+        <button onclick="transferir()">Transferir</button>
+    </div>
+
+    <div class="card">
+        <h3>4. 👤 Mi Perfil</h3>
+        <button onclick="verPerfil()">Ver Perfil</button>
+    </div>
+
+    <div class="card">
+        <h3>📤 Respuesta:</h3>
+        <pre id="respuesta">Esperando acción...</pre>
+    </div>
+
+    <script>
+        let tokenActual = null;
+
+        async function registrar() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPass').value;
+            const role = document.getElementById('regRole').value;
+            
+            const respuesta = document.getElementById('respuesta');
+            respuesta.textContent = '⏳ Registrando...';
+            respuesta.style.color = 'black';
+            
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, role })
+                });
+                const data = await res.json();
+                respuesta.textContent = JSON.stringify(data, null, 2);
+                respuesta.style.color = res.ok ? 'green' : 'red';
+                if(res.ok) {
+                    alert('✅ Registro exitoso! Ahora haz Login');
+                }
+            } catch (error) {
+                respuesta.textContent = 'Error: ' + error.message;
+                respuesta.style.color = 'red';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPass').value;
+            
+            const respuesta = document.getElementById('respuesta');
+            respuesta.textContent = '⏳ Iniciando sesión...';
+            respuesta.style.color = 'black';
+            
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                
+                if (data.token) {
+                    tokenActual = data.token;
+                    document.getElementById('tokenDiv').innerHTML = `
+                        <strong>✅ Token JWT:</strong>
+                        <div class="token">${tokenActual.substring(0, 80)}...</div>
+                    `;
+                    respuesta.textContent = '✅ Login exitoso! Token guardado';
+                    respuesta.style.color = 'green';
+                    alert('✅ Login exitoso! Ahora puedes transferir');
+                } else {
+                    respuesta.textContent = JSON.stringify(data, null, 2);
+                    respuesta.style.color = 'red';
+                }
+            } catch (error) {
+                respuesta.textContent = 'Error: ' + error.message;
+                respuesta.style.color = 'red';
+            }
+        }
+
+        async function transferir() {
+            if (!tokenActual) {
+                document.getElementById('respuesta').innerHTML = '❌ Primero debes hacer login';
+                document.getElementById('respuesta').style.color = 'red';
+                return;
+            }
+            
+            const monto = document.getElementById('monto').value;
+            const cuentaDestino = document.getElementById('cuenta').value;
+            
+            const respuesta = document.getElementById('respuesta');
+            respuesta.textContent = '⏳ Procesando transferencia...';
+            respuesta.style.color = 'black';
+            
+            try {
+                const res = await fetch('/api/transferencia', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${tokenActual}`
+                    },
+                    body: JSON.stringify({ monto: parseInt(monto), cuentaDestino })
+                });
+                const data = await res.json();
+                respuesta.textContent = JSON.stringify(data, null, 2);
+                respuesta.style.color = res.ok ? 'green' : 'red';
+            } catch (error) {
+                respuesta.textContent = 'Error: ' + error.message;
+                respuesta.style.color = 'red';
+            }
+        }
+
+        async function verPerfil() {
+            if (!tokenActual) {
+                document.getElementById('respuesta').innerHTML = '❌ Primero debes hacer login';
+                document.getElementById('respuesta').style.color = 'red';
+                return;
+            }
+            
+            const respuesta = document.getElementById('respuesta');
+            respuesta.textContent = '⏳ Obteniendo perfil...';
+            respuesta.style.color = 'black';
+            
+            try {
+                const res = await fetch('/api/perfil', {
+                    headers: { 'Authorization': `Bearer ${tokenActual}` }
+                });
+                const data = await res.json();
+                respuesta.textContent = JSON.stringify(data, null, 2);
+                respuesta.style.color = res.ok ? 'green' : 'red';
+            } catch (error) {
+                respuesta.textContent = 'Error: ' + error.message;
+                respuesta.style.color = 'red';
+            }
+        }
+    </script>
+</body>
+</html> 
